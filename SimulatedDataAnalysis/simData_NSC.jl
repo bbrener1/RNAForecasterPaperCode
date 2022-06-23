@@ -3,15 +3,9 @@ include("makeRecursivePredictions.jl");
 
 using DelimitedFiles
 using JLD2
+data = load_object("contTimeSim/randomNetworkTimeSeriesSimData.jld2")
+data = data[:,101:152,:,:]
 
-data = Array{Float32}(undef, 10, 52, 2000, 117)
-for j=3:119
-    for i=0:1999
-        cellExpr = readdlm("contTimeSim/RandomRef" * string(j) * "/simulations/E" * string(i) * ".csv", ',')
-        cellExpr = cellExpr[2:end, 2:end]
-        data[:,:, (i+1), (j-2)] = cellExpr[:,101:152]
-    end
-end
 
 t1 = Array{Float32}(undef, 10, 2000, 117)
 t2 = Array{Float32}(undef, 10, 2000, 117)

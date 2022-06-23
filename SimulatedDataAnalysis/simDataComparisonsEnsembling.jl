@@ -5,12 +5,8 @@ using StatsBase, Random
 
 #select a random simulation
 sim= sample(3:119, 1)[1] #102
-data = Array{Float32}(undef, 10, 52, 2000)
-for i=0:1999
-    cellExpr = readdlm("contTimeSim/RandomRef" * string(sim) * "/simulations/E" * string(i) * ".csv", ',')
-    cellExpr = cellExpr[2:end, 2:end]
-    data[:,:, (i+1)] = cellExpr[:,101:152]
-end
+data = load_object("contTimeSim/randomNetworkTimeSeriesSimData.jld2")
+data = data[:,101:152,:,sim]
 
 t1 = Array{Float32}(undef, 10, 2000)
 t2 = Array{Float32}(undef, 10, 2000)
