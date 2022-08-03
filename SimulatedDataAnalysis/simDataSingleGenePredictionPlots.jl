@@ -132,3 +132,18 @@ p2 = plot(x, transpose(simDataExample), xlabel = "Simulated Time", ylabel = "Exp
  label = ["Gene 1" "Gene 2" "Gene 3" "Gene 4" "Gene 5" "Gene 6" "Gene 7" "Gene 8" "Gene 9" "Gene 10"])
 
 savefig(p2, "simDataExample.pdf")
+
+
+#get MSE at each point
+using Flux: mse
+
+mseNODE = Matrix{Float32}(undef, 50, 120)
+mseMLP = Matrix{Float32}(undef, 50, 120)
+for i=1:12
+    for j=1:10
+        for t=1:50
+            mseNODE[t, j + ((i-1)*10)] = mse(predDataNODE[j,i,t], simData[j,t,i])
+            mseMLP[t, j + ((i-1)*10)] = mse(predDataMLP[j,i,t], simData[j,t,i])
+        end
+    end
+end

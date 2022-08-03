@@ -255,3 +255,36 @@ for i=1:5
     testResults[i] = UnequalVarianceTTest(boxplotData2[:,iter], boxplotData2[:,iter+1])
     iter+=2
 end
+
+
+
+#KO data
+ensKOPreds = load_object("ensemblePredictionErrors_KO_10Networks.jld2")
+
+koCompData = hcat(ensemblePreds[1:50,toUse], ensKOPreds[1:50, toUse])
+
+#boxplot at 1,10,20,30,40,50
+labels = Matrix{String}(undef, 1, 12)
+iter = 1
+for i in [1,10,20,30,40,50]
+    labels[1,iter] = "t" * string(i) * " - Original Simulation"
+    labels[1,(iter+1)] = "t" * string(i) * " - with KO"
+    iter+=2
+end
+
+koCompDataSub = koCompData[[1,10,20,30,40,50],:]
+boxplotData = hcat(transpose(koCompDataSub[:,1:95]), transpose(koCompDataSub[:,96:190]))
+boxplotData = boxplotData[:,[1,7,2,8,3,9,4,10,5,11,6,12]]
+
+defaultCols = get_color_palette(:Dark2_5, 2)
+pal = repeat([defaultCols[1], defaultCols[2]], outer = 6)
+boxplot(labels, boxplotData, legend = false, ylabel = "MSE", palette = pal)
+savefig("simDataEnsembleBoxplots_KO.pdf")
+
+#getting statistical significance of loss level comparisons
+testResults = Vector{Any}(undef, 6)
+iter = 1
+for i=1:6
+    testResults[i] = UnequalVarianceTTest(boxplotData[:,iter], boxplotData[:,iter+1])
+    iter+=2
+end

@@ -77,3 +77,7 @@ end
 
 #seedList = collect(1:2000)
 #generateRefNetSet(seedList; minGenes=10, maxGenes=10, maxRegs = 5)
+
+
+#seedList = collect(1:10)
+#generateRefNetSet(seedList, minGenes=1000, maxGenes=1000, maxRegs = 10)

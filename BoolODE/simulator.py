@@ -8,7 +8,7 @@ def noise(x,t):
 
 def deltaW(N, m, h,seed=0):
     """Generate sequence of Wiener increments for m independent Wiener
-    processes W_j(t) j=0..m-1 for each of N time intervals of length h.    
+    processes W_j(t) j=0..m-1 for each of N time intervals of length h.
     From the sdeint implementation
 
     :returns:
@@ -17,7 +17,7 @@ def deltaW(N, m, h,seed=0):
     np.random.seed(seed)
     return np.random.normal(0.0, h, (N, m))
 
-def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
+def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None, KOTime=100, KOInd = 0):
     """
     Adapted from sdeint implementation https://github.com/mattja/sdeint/
 
@@ -32,12 +32,13 @@ def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
     :param seed: Seed to initialize random number generator
     :type seed: float
     :returns:
-        - y: Array containing the time course of state variables 
+        - y: Array containing the time course of state variables
     """
     # From sdeint implementation
-    N = len(tspan)
+    N = 800
     h = (tspan[N-1] - tspan[0])/(N - 1)
-    maxtime = tspan[-1]
+    maxtime = 800
+
     # allocate space for result
     d = len(y0)
     y = np.zeros((N+1, d), dtype=type(y0[0]))
@@ -48,16 +49,19 @@ def eulersde(f,G,y0,tspan,pars,seed=0.,dW=None):
     y[0] = y0
     currtime = 0
     n = 0
-   
+
     while currtime < maxtime:
         tn = currtime
         yn = y[n]
         dWn = dW[n,:]
         y[n+1] = yn + f(yn, tn,pars)*h + np.multiply(G(yn, tn),dWn)
+        #KO gene
+        if currtime >= KOTime:
+            y[n+1, KOInd] = 0
         # Ensure positive terms
         for i in range(len(y[n+1])):
             if y[n+1][i] < 0:
                 y[n+1][i] = yn[i]
-        currtime += h
-        n += 1 
+        currtime += 1
+        n += 1
     return y

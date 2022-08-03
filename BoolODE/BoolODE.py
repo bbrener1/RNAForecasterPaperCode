@@ -11,13 +11,13 @@ from sklearn.cluster import KMeans
 import time
 import importlib
 import warnings
-from tqdm import tqdm 
+from tqdm import tqdm
 from optparse import OptionParser
 import multiprocessing as mp
 import ast
 from importlib.machinery import SourceFileLoader
-import utils 
-import simulator 
+import utils
+import simulator
 
 np.seterr(all='raise')
 import os
@@ -26,7 +26,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
                      add_dummy=False, max_parents=1):
     """
     Reads a rule file from path and stores the rules in a dictionary
-    
+
     Parameters
     ----------
     :param path: Path to Boolean Rule file
@@ -79,7 +79,7 @@ def readBooleanRules(path, parameterInputsPath, outPrefix='',
                                                                  size=max_parents)])},
                            ignore_index = True)
             DF.to_csv(outPrefix + 'rules-with-added-genes.csv')
-            
+
     print(DF)
     return DF, withoutRules
 
@@ -111,7 +111,7 @@ def getParameters(DF,identicalPars,
     :type interactionStrengthDF: pandas DataFrame
     :returns:
         pars : dict
-            Dictionary of parameters 
+            Dictionary of parameters
     """
     ## Set default parameters
     mRNATranscription = 20.
@@ -135,7 +135,7 @@ def getParameters(DF,identicalPars,
         'n_':hillCoefficient,
         # Thresholds
         'k_':hillThreshold,
-    }     
+    }
     parameterNamePrefixAndDefaultsGenes = {
         # mRNA transcription rates
         'm_':mRNATranscription,
@@ -145,21 +145,21 @@ def getParameters(DF,identicalPars,
         'r_':proteinTranslation,
         # protein degradation rates
         'l_p_':proteinDegradation
-    }     
-    
+    }
+
     par = dict()
     ## If there is even one signaling protein,
     ## create the y_max parameter
     if len(proteinlist) > 0:
         par['y_max'] = y_max
         par['signalingtimescale'] = signalingtimescale
-        
+
     parameterInputsDict  = {}
     interactionStrengths = {}
 
     ## Get set of species which have rules specified for them
     species = set(DF['Gene'].values)
-    
+
     ## Check 1:
     ## If a parameter input file is specified,
     ## Every row in parameterInputsDF contains two
@@ -170,7 +170,7 @@ def getParameters(DF,identicalPars,
     ## each corresponding to the value of a parameter.
     ## Now, we create a fake hill term for this input, even
     ## though there is no equation corresponding to it. Thus,
-    ## we create a hillThreshold and hillCoefficient 
+    ## we create a hillThreshold and hillCoefficient
     ## term for it. This is useful so we can treat this input
     ## parameter as a "regulator" and leave the structure of
     ## the logic term unchanged.
@@ -183,7 +183,7 @@ def getParameters(DF,identicalPars,
             # Set to a max value
             parameterInputsDict[i].update({p:hillThreshold*2 for p,v in\
                                        zip(inputParams,inputValues) if v > 0})
-            
+
         # Add input parameters, set to 0 by default
         par.update({p:0 for p in parameterInputsDict[0].keys()})
         par.update({'k_'+p:hillThreshold for p in parameterInputsDict[0].keys()})
@@ -221,7 +221,7 @@ def getParameters(DF,identicalPars,
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval
-                    
+
         transcriptionRate = 0.0
         mRNADegradationRate = 0.0
         for parPrefix, parDefault in parameterNamePrefixAndDefaultsGenes.items():
@@ -241,7 +241,7 @@ def getParameters(DF,identicalPars,
                     transcriptionRate = parDefault
                 if parPrefix == 'l_x_':
                     mRNADegradationRate = parDefault
-            
+
             for sp, sparval in zip(species, sampledParameterValues):
                 if sp in genelist:
                     par[parPrefix + sp] = sparval
@@ -300,7 +300,7 @@ def generateModelDict(DF,identicalPars,
     :type interactionStrengthDF: pandas DataFrame
     :returns:
         ModelSpec : dict
-            Dictionary of dictionaries. 
+            Dictionary of dictionaries.
             'varspecs' {variable:ODE equation}
             'ics' {variable:initial condition}
             'pars' {parameter:parameter value}
@@ -343,8 +343,8 @@ def generateModelDict(DF,identicalPars,
         for sp in species:
             if sp not in specified:
                 genelist.append(sp)
-                
-    ## Useful for debugging. 
+
+    ## Useful for debugging.
     # print(genelist)
     # print(proteinlist)
 
@@ -365,7 +365,7 @@ def generateModelDict(DF,identicalPars,
     boolodespace = {}
     for i,row in DF.iterrows():
         # Initialize species to 0
-        tempStr = row['Gene'] + " = 0"  
+        tempStr = row['Gene'] + " = 0"
         exec(tempStr, boolodespace)
 
     if parameterInputsDF is None:
@@ -374,14 +374,14 @@ def generateModelDict(DF,identicalPars,
         inputs = set(withoutRules)
         for k in parameterInputs[0].keys():
             # Initialize variables to 0
-            tempStr = k + " = 0"  
+            tempStr = k + " = 0"
             exec(tempStr, boolodespace)
-            
+
     for i,row in DF.iterrows():
         # Basal alpha:
         # Execute the rule to figure out
         # the value of alpha_0
-        exec('booleval = ' + row['Rule'], boolodespace) 
+        exec('booleval = ' + row['Rule'], boolodespace)
         par['alpha_'+row['Gene']] = int(boolodespace['booleval'])
 
     for i,row in DF.iterrows():
@@ -393,13 +393,13 @@ def generateModelDict(DF,identicalPars,
         allreg = set([t for t in tokens if (t in species or t in inputs)])
         regulatorySpecies = set([t for t in tokens if t in species])
         inputreg = set([t for t in tokens if t in inputs])
-        
+
         currSp = row['Gene']
         num = '( alpha_' + currSp
         den = '( 1'
 
         strengthSpecified = False
-        
+
         if interactionStrengthDF is not None:
             if currSp in interactionStrengthDF['Gene1'].values:
                 strengthSpecified = True
@@ -409,7 +409,7 @@ def generateModelDict(DF,identicalPars,
                                                                    interactionStrengthDF['Gene1']\
                                                                    == currSp]['Gene2'].values)
                 print(regulatorsWithStrength)
-                
+
         for i in range(1,len(allreg) + 1):
             for c in combinations(allreg,i):
                 # Create the hill function terms for each regulator
@@ -419,7 +419,7 @@ def generateModelDict(DF,identicalPars,
                             hillThresholdName = 'k_' + ci + '_' + currSp
                     else:
                         hillThresholdName = 'k_' + ci
-                        
+
                     if ci in regulatorySpecies:
                         # Note: Only proteins can be regulators
                         hills.append('(p_'+ci+'/'+hillThresholdName+')^n_'+ci)
@@ -427,9 +427,9 @@ def generateModelDict(DF,identicalPars,
                         hills.append('('+ci+'/'+hillThresholdName+')^n_'+ci)
                 mult = '*'.join(hills)
                 # Create Numerator and Denominator
-                den += ' +' +  mult                
+                den += ' +' +  mult
                 num += ' + a_' + currSp +'_'  + '_'.join(list(c)) + '*' + mult
-                
+
                 for i1, row1 in DF.iterrows():
                     exec(row1['Gene'] + ' = 0', boolodespace)
 
@@ -437,11 +437,11 @@ def generateModelDict(DF,identicalPars,
                     exec(geneInList + ' = 1', boolodespace)
                 exec('boolval = ' + row['Rule'], boolodespace)
 
-                par['a_' + currSp +'_'  + '_'.join(list(c))] = int(boolodespace['boolval']) 
+                par['a_' + currSp +'_'  + '_'.join(list(c))] = int(boolodespace['boolval'])
 
         num += ' )'
         den += ' )'
-        
+
         if currSp in proteinlist:
             Production =  '(' +num + '/' + den + ')'
             Degradation = 'p_' + currSp
@@ -454,12 +454,12 @@ def generateModelDict(DF,identicalPars,
                                        + '-' + Degradation
             # Create the corresponding translated protein equation
             varspecs['p_' + currSp] = 'r_'+currSp+'*'+'x_' +currSp + '- l_p_'+currSp+'*'+'p_' + currSp
-            
-    ##########################################################                                       
-        
+
+    ##########################################################
+
     # Initialize variables between 0 and 1, Doesn't matter.
     xvals = [1. for _ in range(len(genelist))]
-    pvals = [20. for _ in range(len(proteinlist))]    
+    pvals = [20. for _ in range(len(proteinlist))]
     ics = {}
 
     for sp, xv in zip(genelist, xvals):
@@ -475,7 +475,7 @@ def generateModelDict(DF,identicalPars,
     return ModelSpec, parameterInputs, genelist, proteinlist, x_max
 
 
-def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
+def simulateModel(Model, y0, parameters,isStochastic, tspan,seed, KOTime = 100, KOInd = 0):
     """Call numerical integration functions, either odeint() from Scipy,
     or simulator.eulersde() defined in simulator.py. By default, stochastic simulations are
     carried out using simulator.eulersde.
@@ -492,7 +492,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     :type tspan: ndarray
     :param seed: Seed to initialize random number generator
     :type seed: float
-    :returns: 
+    :returns:
         - P: Time course from numerical integration
     :rtype: ndarray
 
@@ -500,7 +500,7 @@ def simulateModel(Model, y0, parameters,isStochastic, tspan,seed):
     if not isStochastic:
         P = odeint(Model,y0,tspan,args=(parameters,))
     else:
-        P = simulator.eulersde(Model,simulator.noise,y0,tspan,parameters,seed=seed)
+        P = simulator.eulersde(Model,simulator.noise,y0,tspan,parameters,seed=seed, KOTime=KOTime, KOInd = KOInd)
     return(P)
 
 def getInitialCondition(ss, ModelSpec, rnaIndex,
@@ -508,8 +508,8 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
                         genelist, proteinlist,
                         varmapper,revvarmapper):
     """
-    Calculate the initial values of all state variables. 
-    Takes into consideration user defined initial conditions, and computes the steady 
+    Calculate the initial values of all state variables.
+    Takes into consideration user defined initial conditions, and computes the steady
     states of the protein variables based on the estimated values of their corresponding genes.
 
     :param ss: Steady state array
@@ -531,7 +531,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
     :returns:
         - newics: List containing new initial conditions
     """
-    
+
     # Initialize
     new_ics = [0 for _ in range(len(varmapper.keys()))]
     # Set the mRNA ics
@@ -547,7 +547,7 @@ def getInitialCondition(ss, ModelSpec, rnaIndex,
             ss[ind] = 0.0
         new_ics[ind] =  ss[ind]
         if new_ics[ind] < 0:
-            new_ics[ind] = 0            
+            new_ics[ind] = 0
     # Calculate the Protein ics based on mRNA levels
     for genename in genelist:
         pss = ((ModelSpec['pars']['r_' + genename])/\
@@ -580,18 +580,20 @@ def simulateAndSample(argdict):
     seed = argdict['seed']
     pars = argdict['pars']
     x_max = argdict['x_max']
+    KOTime = argdict['KOTime']
+    KOInd = argdict['KOInd']
     if sampleCells:
         header = argdict['header']
     pars = {}
     for k, v in allParameters.items():
         pars[k] = v
     pars = [pars[k] for k in parNames]
-    
+
     ## Boolean to check if a simulation is going to a
     ## 0 steady state, with all genes/proteins dying out
     retry = True
     trys = 0
-    
+
     ## timepoints
     tps = [i for i in range(1,len(tspan))]
     ## gene ids
@@ -602,8 +604,8 @@ def simulateAndSample(argdict):
         y0_exp = getInitialCondition(ss, ModelSpec, rnaIndex, proteinIndex,
                                      genelist, proteinlist,
                                      varmapper,revvarmapper)
-        
-        P = simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed)
+
+        P = simulateModel(Model, y0_exp, pars, isStochastic, tspan, seed, KOTime=KOTime, KOInd = gid[KOInd])
         P = P.T
         retry = False
         ## Extract Time points
@@ -621,35 +623,35 @@ def simulateAndSample(argdict):
         #     if colmax < 0.1*x_max:
         #         retry= True
         #         break
-        
+
         if sampleCells:
             ## Write a single cell to file
             ## These samples allow for quickly and
             ## reproducibly testing the output.
             sampledf, sampleSplicedDF = utils.sampleCellFromTraj(cellid,
-                                          tspan, 
+                                          tspan,
                                           P,
                                           varmapper, timeIndex,
                                           genelist, proteinlist,
                                           header,
                                           writeProtein=writeProtein)
             sampledf = sampledf.T
-            sampledf.to_csv(outPrefix + 'E' + str(cellid) + '-cell.csv') 
-            
+            sampledf.to_csv(outPrefix + 'E' + str(cellid) + '-cell.csv')
+
             sampleSplicedDF = sampleSplicedDF.T
             sampleSplicedDF.to_csv(outPrefix + 'E_spliced' + str(cellid) + '-cell.csv')
-            
-            
+
+
         trys += 1
         if trys > 1:
             print('try', trys)
-            
+
 
     # write to file
     df.to_csv(outPrefix + 'E'+ str(cellid) + '.csv')
-    
 
-    
+
+
 def Experiment(Model, ModelSpec,tspan,
                num_cells,
                sampleCells,
@@ -660,11 +662,11 @@ def Experiment(Model, ModelSpec,tspan,
                x_max,
                doParallel,
                burnin=False,writeProtein=False,
-               normalizeTrajectory=False):
+               normalizeTrajectory=False, KOTime = 100, KOInd = 0):
     """
-    Carry out an `in-silico` experiment. This function takes as input 
+    Carry out an `in-silico` experiment. This function takes as input
     an ODE model defined as a python function and carries out stochastic
-    simulations. BoolODE defines a _cell_ as a single time point from 
+    simulations. BoolODE defines a _cell_ as a single time point from
     a simulated time course. Thus, in order to obtain 50 single cells,
     BoolODE carries out 50 simulations, which are stored in ./simulations/.
     Further, if it is known that the resulting single cell dataset will
@@ -682,15 +684,15 @@ def Experiment(Model, ModelSpec,tspan,
     :type num_cells: int
     :param sampleCells: Bool that specifies if a random sample of size num_cells should be generated from the simulated output, where one cell is picked per simulation without replacement
     :type sampleCells: bool
-    :param varmapper: 
+    :param varmapper:
     :type varmapper: dict
-    :param parmapper: 
+    :param parmapper:
     :type parmapper: dict
     :param genelist: List of all gene names
     :type genelist:  list
     :param proteinlist: List of all protein names
     :type proteinlist: list
-    :param outPrefix: Name of output folder. 
+    :param outPrefix: Name of output folder.
     :type outPrefix: str
     :param icsDF: Dataframe specifying initial condition for simulation
     :type icsDF: pandas DataFrame
@@ -705,14 +707,14 @@ def Experiment(Model, ModelSpec,tspan,
     :param writeProtein: Bool specifying if the protein values should be written to file. Default = False
     :type writeProtein: bool
     :param normalizeTrajectory: Bool specifying if the gene expression values should be scaled between 0 and 1.
-    :type normalizeTrajectory: bool 
+    :type normalizeTrajectory: bool
     """
     if not sampleCells:
         print("Note: Simulated trajectories will be clustered. nClusters = %d" % nClusters)
-    ####################    
+    ####################
     allParameters = dict(ModelSpec['pars'])
     parNames = sorted(list(allParameters.keys()))
-    ## Use default parameters 
+    ## Use default parameters
     pars = [ModelSpec['pars'][k] for k in parNames]
     ####################
     rnaIndex = [i for i in range(len(varmapper.keys())) if 'x_' in varmapper[i]]
@@ -721,7 +723,7 @@ def Experiment(Model, ModelSpec,tspan,
 
     y0 = [ModelSpec['ics'][varmapper[i]] for i in range(len(varmapper.keys()))]
     ss = np.zeros(len(varmapper.keys()))
-    
+
     for i,k in varmapper.items():
         if 'x_' in k:
             ss[i] = 1.0
@@ -731,7 +733,7 @@ def Experiment(Model, ModelSpec,tspan,
                 # causes them to drop to 0 rapidly
                 # TODO: try setting to threshold < v < y_max
                 ss[i] = 20.
-            
+
     if icsDF is not None:
         icsspec = icsDF.loc[0]
         genes = ast.literal_eval(icsspec['Genes'])
@@ -748,9 +750,9 @@ def Experiment(Model, ModelSpec,tspan,
                     ss[revvarmapper['x_'+g]] = icsmap[g]
                 else:
                     ss[revvarmapper['x_'+g]] = 0.01
-            
+
     outputfilenames = []
-    for isStochastic in [True]: 
+    for isStochastic in [True]:
         # "WT" simulation
         if len(proteinlist) == 0:
             result = pd.DataFrame(index=pd.Index([varmapper[i] for i in rnaIndex]))
@@ -758,7 +760,7 @@ def Experiment(Model, ModelSpec,tspan,
             speciesoi = [revvarmapper['p_' + p] for p in proteinlist]
             speciesoi.extend([revvarmapper['x_' + g] for g in genelist])
             result = pd.DataFrame(index=pd.Index([varmapper[i] for i in speciesoi]))
-            
+
         frames = []
         if burnin:
             burninFraction = 0.25 # Chosen arbitrarily as 25%
@@ -766,9 +768,9 @@ def Experiment(Model, ModelSpec,tspan,
             startat = int(np.ceil(burninFraction*len(tspan)))
         else:
             startat = 0
-            
+
         # Index of every possible time point. Sample from this list
-        timeIndex = [i for i in range(startat, len(tspan))]        
+        timeIndex = [i for i in range(startat, len(tspan))]
         if sampleCells:
 
             # pre-define the time points from which a cell will be sampled
@@ -802,6 +804,8 @@ def Experiment(Model, ModelSpec,tspan,
         argdict['proteinlist'] = proteinlist
         argdict['revvarmapper'] = revvarmapper
         argdict['x_max'] = x_max
+        argdict['KOTime'] = KOTime
+        argdict['KOInd'] = KOInd
 
         if sampleCells:
             argdict['header'] = header
@@ -826,17 +830,17 @@ def Experiment(Model, ModelSpec,tspan,
                     job = pool.apply_async(simulateAndSample, args=(cell_args,))
                     jobs.append(job)
                     splicedExpr[cellid:,] = job
-                    
+
                 for job in jobs:
                     job.wait()
-            
-            ###            
+
+            ###
         else:
             for cellid in tqdm(range(num_cells)):
                 argdict['seed'] = cellid
                 argdict['cellid'] = cellid
                 simulateAndSample(argdict)
-                
+
         ########################
         ## Sleep for 1 s to allow for IO. Hack necessary for smalle number of simulations
         ## where sim time < IO time.
@@ -848,13 +852,13 @@ def Experiment(Model, ModelSpec,tspan,
         start = time.time()
         if not sampleCells:
             # initialize dictionary to hold raveled values, used to cluster
-            groupedDict = {} 
+            groupedDict = {}
         for cellid in tqdm(range(num_cells)):
             if sampleCells:
                 df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '-cell.csv',index_col=0)
                 df = df.sort_index()
                 df2 = pd.read_csv(outPrefix + 'simulations/E_spliced'+str(cellid) + '-cell.csv',index_col=0)
-                df2 = df2.sort_index()   
+                df2 = df2.sort_index()
             else:
                 df = pd.read_csv(outPrefix + 'simulations/E'+str(cellid) + '.csv',index_col=0)
                 df = df.sort_index()
@@ -868,13 +872,13 @@ def Experiment(Model, ModelSpec,tspan,
         indices = result.index
         newindices = [i.replace('x_','') for i in indices]
         result.index = pd.Index(newindices)
-        
+
         spliced = pd.concat(frames2,axis=0)
         spliced = spliced.T
         indices = spliced.index
         newindices = [i.replace('x_','') for i in indices]
         spliced.index = pd.Index(newindices)
-        
+
         if not sampleCells:
             ## Carry out k-means clustering to identify which
             ## trajectory a simulation belongs to
@@ -882,7 +886,7 @@ def Experiment(Model, ModelSpec,tspan,
             #headers = result.columns
             # simulations = sorted(list(set([h.split('_')[0] + '_' for h in headers])))
             ## group each simulation
-            #groupedDict = {} 
+            #groupedDict = {}
             ## The following loop takes time for a large number of
             ## simulations
             #print('Raveling dataframe to start clustering')
@@ -890,7 +894,7 @@ def Experiment(Model, ModelSpec,tspan,
             #    groupedDict[s] = result.loc[:, result.columns.str.startswith(s)].values.ravel()
             groupedDF = pd.DataFrame.from_dict(groupedDict)
             print('Clustering simulations...')
-            start = time.time()            
+            start = time.time()
             # Find clusters in the experiments
             clusterLabels= KMeans(n_clusters=nClusters,
                                   n_jobs=8).fit(groupedDF.T.values).labels_
@@ -903,7 +907,7 @@ def Experiment(Model, ModelSpec,tspan,
             resultN = utils.normalizeExp(result)
         else:
             resultN = result
-            
+
         if isStochastic:
             name = 'stoch'
         else:
@@ -913,7 +917,7 @@ def Experiment(Model, ModelSpec,tspan,
             clusterDF.to_csv(outPrefix + 'ClusterIds.csv')
         outputfilenames.append(outPrefix + name +'_experiment.txt')
     return outputfilenames, resultN, spliced
-            
+
 def parseArgs(args):
     parser = OptionParser()
     parser.add_option('', '--max-time', type='int',default=20,
@@ -922,9 +926,9 @@ def parseArgs(args):
                       help='Number of cells sample. (Default = 100)')
     parser.add_option('', '--sample-cells', action='store_true',default=False,
                       help="Sample a single cell from each trajectory?\n"
-                      "By default will store full trajectory of each simulation (Default = False)")    
+                      "By default will store full trajectory of each simulation (Default = False)")
     parser.add_option('', '--add-dummy', action="store_true",default=False,
-                      help='Add dummy genes')        
+                      help='Add dummy genes')
     parser.add_option('-n', '--normalize-trajectory', action="store_true",default=False,
                       help="Min-Max normalize genes across all experiments")
     parser.add_option('-i', '--identical-pars', action="store_true",default=False,
@@ -939,7 +943,7 @@ def parseArgs(args):
                       help="Write both protein and RNA values to file. Useful for debugging.")
     parser.add_option('-b', '--burn-in', action="store_true",default=False,
                       help="Treats the first 25% of the time course as burnin\n"
-                      ", samples from the rest.")        
+                      ", samples from the rest.")
     parser.add_option('', '--outPrefix', type = 'str',default='',
                       help='Prefix for output files.')
     parser.add_option('', '--path', type='str',
@@ -947,7 +951,7 @@ def parseArgs(args):
     parser.add_option('', '--inputs', type='str',default='',
                       help='Path to input parameter files. This is different from specifying a parameter set!')
     parser.add_option('', '--pset', type='str',default='',
-                      help='Path to pre-generated parameter set.')        
+                      help='Path to pre-generated parameter set.')
     parser.add_option('', '--ics', type='str',default='',
                       help='Path to list of initial conditions')
     parser.add_option('', '--strengths', type='str',default='',
@@ -956,12 +960,16 @@ def parseArgs(args):
                       help="Path to list of molecular species type file."\
                       "Useful to specify proteins/genes")
     parser.add_option('-c', '--nClusters', type='int',default='1',
-                      help='Number of expected clusters in the dataset. (Default = 1)')    
+                      help='Number of expected clusters in the dataset. (Default = 1)')
     parser.add_option('', '--max-parents', type='int',default='1',
-                      help='Number of parents to add to dummy genes. (Default = 1)')    
+                      help='Number of parents to add to dummy genes. (Default = 1)')
     parser.add_option('', '--do-parallel', action="store_true",default=False,
-                      help='Run simulations in parallel. Recommended for > 50 simulations')    
-        
+                      help='Run simulations in parallel. Recommended for > 50 simulations')
+    parser.add_option('', '--KOTime', type='int',default=100,
+                      help='Time at which to start the KO simulation. (Default = 100)')
+    parser.add_option('', '--KOInd', type='int',default=0,
+                      help='Index at which to KO a gene in simulation (set to 0). (Default = 0)')
+
     (opts, args) = parser.parse_args(args)
 
     return opts, args
@@ -983,7 +991,7 @@ def main(args):
     outPrefix = opts.outPrefix
     parameterInputsPath = opts.inputs
     parameterSetPath = opts.pset
-    icsPath = opts.ics    
+    icsPath = opts.ics
     writeProtein = opts.write_protein
     normalizeTrajectory = opts.normalize_trajectory
     interactionStrengthPath = opts.strengths
@@ -992,7 +1000,9 @@ def main(args):
     sampleCells = opts.sample_cells
     nClusters = opts.nClusters
     max_parents = opts.max_parents
-    doParallel = opts.do_parallel    
+    doParallel = opts.do_parallel
+    KOTime = opts.KOTime
+    KOInd = opts.KOInd
     # if output directory doesn't exist
     # create one!
     if len(outPrefix) > 0:
@@ -1001,13 +1011,13 @@ def main(args):
             if not os.path.exists(outDir):
                 print(outDir, "does not exist, creating it...")
                 os.makedirs(outDir)
-    
-    if len(parameterInputsPath) > 0: 
+
+    if len(parameterInputsPath) > 0:
         parameterInputsDF = pd.read_csv(parameterInputsPath,sep='\t')
     else:
         parameterInputsDF = None
-        
-    if len(parameterSetPath) > 0: 
+
+    if len(parameterSetPath) > 0:
         parameterSetDF = pd.read_csv(parameterSetPath,
                                      header=None,
                                      sep='\t',
@@ -1015,7 +1025,7 @@ def main(args):
     else:
         parameterSetDF = None
 
-    if len(icsPath) > 0: 
+    if len(icsPath) > 0:
         icsDF = pd.read_csv(icsPath,sep='\t',engine='python')
     else:
         icsDF = None
@@ -1026,27 +1036,27 @@ def main(args):
     else:
         interactionStrengthDF = None
 
-    if len(speciesTypePath) > 0: 
+    if len(speciesTypePath) > 0:
         speciesTypeDF = pd.read_csv(speciesTypePath,sep='\t')
     else:
         speciesTypeDF = None
-        
+
     ## Hardcoded  ODE simulation time steps
     ## This can be reduced
     timesteps = 100
     tspan = np.linspace(0,tmax,tmax*timesteps)
-    
+
     DF, withoutRules = readBooleanRules(path, parameterInputsPath,
                                         outPrefix, add_dummy, max_parents)
     if len(withoutRules) == 0:
         withoutRules = []
-        
+
     it = 0
     someexception = True
     while someexception:
         try:
             genesDict = {}
-            
+
             ModelSpec,\
                 parameterInputs,\
                 genelist,\
@@ -1064,7 +1074,7 @@ def main(args):
             if len(parameterInputsPath) > 0:
                 ModelSpec['pars'].update(parameterInputs[0])
             varmapper = {i:var for i,var in enumerate(ModelSpec['varspecs'].keys())}
-            parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}    
+            parmapper = {i:par for i,par in enumerate(ModelSpec['pars'].keys())}
             dir_path  = utils.writeModelToFile(ModelSpec)
             ## Load file from path
             model = SourceFileLoader("model", dir_path + "/model.py").load_module()
@@ -1082,7 +1092,8 @@ def main(args):
                                                    doParallel,
                                                    burnin=burnin,
                                                    writeProtein=writeProtein,
-                                                   normalizeTrajectory=normalizeTrajectory)
+                                                   normalizeTrajectory=normalizeTrajectory,
+                                                   KOTime = KOTime, KOInd = KOInd)
             print('Generating input files for pipline...')
             start = time.time()
             utils.generateInputFiles(resultDF, splicedDF, outputfilenames, DF,
@@ -1091,17 +1102,16 @@ def main(args):
                                outPrefix=outPrefix)
             print('Input file generation took %0.2f s' % (time.time() - start))
 
-            
+
             someexception= False
-            
+
         except FloatingPointError as e:
-            it +=1 
+            it +=1
             print(e,"\nattempt %d" %it)
-        
+
     utils.writeParametersToFile(ModelSpec, outPrefix)
     print("BoolODE.py took %0.2fs"% (time.time() - startfull))
-    print('all done.')    
+    print('all done.')
 
 if __name__ == "__main__":
     main(sys.argv)
-
