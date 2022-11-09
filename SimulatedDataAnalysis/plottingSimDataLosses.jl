@@ -288,3 +288,71 @@ for i=1:6
     testResults[i] = UnequalVarianceTTest(boxplotData[:,iter], boxplotData[:,iter+1])
     iter+=2
 end
+
+
+#with VAE data transform, compare to without transform results
+VAESimPreds = load_object("VAETransformedEnsemblePredictionErrors.jld2")
+
+unstableSims = []
+for i=1:size(ensemblePreds)[2]
+    if length(findall(x->x > 0.00001, ensemblePreds[:,i])) == 0
+        push!(unstableSims, i)
+    elseif length(findall(x->x > 1e3, ensemblePreds[:,i])) > 0
+        push!(unstableSims, i)
+    end
+end
+
+toUse = setdiff(1:117, unstableSims)
+
+vaeCompData = hcat(ensemblePreds[1:50,toUse], VAESimPreds[:, toUse])
+
+#create group variable and labels
+group = repeat(1:2, inner=length(toUse))
+
+labels = append!(["10 Network Ensemble"], repeat([""], 95),
+  ["10 Network Ensemble with VAE Encoding"], repeat([""], 95))
+
+for i=1:192
+    if i==1
+        display(plot(1:50, vaeCompData[:,i], legend = :topleft,
+         ylabel = "MSE", xlabel = "Simulated Time", color = group[i],
+          label = labels[i], palette = :Dark2_5))
+    else
+        display(plot!(1:50, vaeCompData[:,i], legend = :topleft,
+         ylabel = "MSE", color = group[i], label = labels[i], palette = :Dark2_5))
+    end
+end
+
+savefig("simDataVAEImpact50TPs.pdf")
+
+
+#boxplot at 1,10,20,30,40,50
+labels = Matrix{String}(undef, 1, 12)
+iter = 1
+for i in [1,10,20,30,40,50]
+    labels[1,iter] = "t" * string(i) * " - Ensembled Neural ODE"
+    labels[1,(iter+1)] = "t" * string(i) * " - VAE with Ensembled Neural ODE"
+    iter+=2
+end
+
+vaeCompDataSub = vaeCompData[[1,10,20,30,40,50],:]
+boxplotData = hcat(transpose(vaeCompDataSub[:,1:96]), transpose(vaeCompDataSub[:,97:192]))
+boxplotData = boxplotData[:,[1,7,2,8,3,9,4,10,5,11,6,12]]
+
+defaultCols = get_color_palette(:Dark2_5, 2)
+pal = repeat([defaultCols[1], defaultCols[2]], outer = 6)
+boxplot(labels, boxplotData, legend = false, ylabel = "MSE", palette = pal)
+savefig("simDataVAECompBoxplots.pdf")
+
+#get an appropriate legend
+plot(1:10, randn(10, 2), labels = ["Ensembled Neural ODE" "VAE with Ensembled Neural ODE"], palette = :Dark2_5)
+savefig("legendEnsemble2.pdf")
+
+
+#getting statistical significance of loss level comparisons
+testResults = Vector{Any}(undef, 6)
+iter = 1
+for i=1:6
+    testResults[i] = UnequalVarianceTTest(boxplotData[:,iter], boxplotData[:,iter+1])
+    iter+=2
+end
