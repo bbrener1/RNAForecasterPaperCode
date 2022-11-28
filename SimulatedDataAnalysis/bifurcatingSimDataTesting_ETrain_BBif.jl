@@ -23,19 +23,21 @@ function createMat(cellsToUse, biData)
 end
 biData1 = createMat(cellsToUse, biData)
 
-#time 1 should be 250 and predict through 450
+#time 1 should be 250
 
 t1 = Array{Float32}(undef, 7, 2000)
 t2 = Array{Float32}(undef, 7, 2000)
+t116 = Array{Float32}(undef, 7, 2000)
 for i=1:2000
     t1[:,i] = biData[:,250,i]
     t2[:,i] = biData[:,251,i]
+    t116[:,i] = biData[:,365,i]
 end
 
 
 #training the neural network, predicting future expression
 #states and returning loss data
-predictionErrors = Vector{Float32}(undef, 200)
+predictionErrors = Vector{Float32}(undef, 100)
 
 using RNAForecaster
 
@@ -43,15 +45,13 @@ using RNAForecaster
 trainingResults = createEnsembleForecaster(t1, t2, nNetworks = 10,
  checkStability = false, hiddenLayerNodes = 50)
 
-#now see what the loss is over simulated time as we try to recursively
-#predict expression into the future states on which the model was not
-#trained on
-exprPreds = ensembleExpressionPredictions(trainingResults, t1, 200)
+#predictions from the cells just beofre bifurcation
+exprPreds = ensembleExpressionPredictions(trainingResults, t116, 100)
 
 
 #compare to simulated benchmark
 for j=1:size(exprPreds)[3]
-    actual = biData[:, j+250,1:2000]
+    actual = biData[:, j+365,1:2000]
     #calculate average cell-wise mse
     predictionErrors[j] = mse(exprPreds[:,:,j], actual, agg= sum)/(size(actual)[1] * size(actual)[2])
 
@@ -59,13 +59,13 @@ end
 
 #save data
 using JLD2
-save_object("exprPreds_BifurcatingSim_EarlierStart.jld2", exprPreds)
-save_object("bifurcatingSimulationEnsemblePredictionErrors_EarlierStart.jld2", predictionErrors)
+save_object("exprPreds_BifurcatingSim_ETrain_PredFromBBif.jld2", exprPreds)
+save_object("bifurcatingSimulationEnsemblePredictionErrors_ETrain_PredFromBBif.jld2", predictionErrors)
 
 
-#use same randomly selected 50 cells to UMAP across the 200 time points
-umapDataPred = Matrix{Float32}(undef, 7, 10000)
-for i=1:200
+#use same randomly selected 50 cells to UMAP across the 100 time points
+umapDataPred = Matrix{Float32}(undef, 7, 5000)
+for i=1:100
     umapDataPred[:,1+(i-1)*50:(50*i)] = exprPreds[:,cellsToUse,i]
 end
 
@@ -83,15 +83,15 @@ colnames(umapData) = c(1:dim(umapData)[2])
 rownames(umapData) = c(1:dim(umapData)[1])
 seu = CreateSeuratObject(umapData)
 
-seu@meta.data$time = c(rep(c(1:800), 50), rep(c(251:450),50))
-seu@meta.data$type = c(rep("Simulated", 40000), rep("Predicted", 10000))
+seu@meta.data$time = c(rep(c(1:800), 50), rep(c(366:465),50))
+seu@meta.data$type = c(rep("Simulated", 40000), rep("Predicted", 5000))
 seu = ScaleData(seu)
 seu <- RunPCA(seu, verbose = FALSE, npcs = 5, features = c(1:dim(umapData)[1]))
 seu <- FindNeighbors(seu, dims = 1:4)
 seu <- FindClusters(seu)
 seu <- RunUMAP(seu, dims = 1:4, verbose = FALSE)
-saveRDS(seu, "bifurcatingDataWithPreds_EarlierStart.rds")
-pdf("bifurcatingSimUMAPwithPreds_EarlierStart.pdf")
+saveRDS(seu, "bifurcatingDataWithPreds_ETrain_PredFromBBif.rds")
+pdf("bifurcatingSimUMAPwithPreds_ETrain_PredFromBBif.pdf")
 FeaturePlot(seu, features = 'time', cols = rev(heat.colors(6)))
 UMAPPlot(seu, group.by = 'type')
 dev.off()
