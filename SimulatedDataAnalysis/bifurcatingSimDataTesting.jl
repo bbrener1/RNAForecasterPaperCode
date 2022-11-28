@@ -1,5 +1,3 @@
-using Pkg
-Pkg.activate("VAE")
 using DelimitedFiles
 
 biData = Array{Float32}(undef, 7, 800, 2000)
@@ -63,8 +61,7 @@ end
 #states and returning loss data
 predictionErrors = Vector{Float32}(undef, 100)
 
-include("trainRNAForecaster.jl")
-include("makeRecursivePredictions.jl")
+using RNAForecaster
 
 #train network and record training and validation error
 trainingResults = createEnsembleForecaster(t1, t2, nNetworks = 10,
