@@ -1,7 +1,10 @@
+using Pkg
+Pkg.activate("../")
+
 using DiffEqFlux, DifferentialEquations
 using Flux.Data: DataLoader
 using JLD2
-include("trainRNAForecaster.jl");
+include("../trainRNAForecasterV2.jl");
 
 #read in the expression data for reference
 using DelimitedFiles
@@ -25,10 +28,11 @@ splicedSub = Float32.(log1p.(splicedSub))
 unsplicedSub = Float32.(log1p.(unsplicedSub))
 
 trainedModel = trainRNAForecaster(splicedSub, unsplicedSub, hiddenLayerNodes = 6000,
- batchsize = 200, learningRate = 0.0001, checkStability = false, useGPU = true)
+ batchsize = 200, learningRate = 0.0001, checkStability = false, useGPU = false, nEpochs = 10)
 
 outModel = cpu(trainedModel[1])
 
-save_object("pancNeuralODEResult.jld2", Flux.params(outModel))
+# Changed to state from params here
+save_object("pancNeuralODEResult.jld2", Flux.state(outModel))
 
 writedlm("pancGPU_Losses.csv", trainedModel[2], ',')

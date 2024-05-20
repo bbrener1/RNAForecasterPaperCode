@@ -1,7 +1,13 @@
+include_prefix = "/Users/bbrener1/haxx/RNAForecasterPaperCode/"
+
+using Pkg
+Pkg.activate(include_prefix)
+
+include(include_prefix * "trainRNAForecaster.jl");
+include(include_prefix * "splicedDataPerturbationEffectPredictions.jl");
+
 using DiffEqFlux, DifferentialEquations
 using JLD2
-include("trainRNAForecaster.jl");
-include("splicedDataPerturbationEffectPredictions.jl");
 
 #read in the expression data for reference
 using DelimitedFiles
@@ -40,8 +46,8 @@ end
 
 outModel = loadForecaster("pancNeuralODEResult.jld2", size(splicedSub)[1], 6000)
 
-include("trainRNAForecaster.jl");
-include("splicedDataPerturbationEffectPredictions.jl");
+# include("trainRNAForecaster.jl");
+# include("splicedDataPerturbationEffectPredictions.jl");
 
 geneNames = readdlm("pancHVGNames.csv", ',')
 geneNames = geneNames[intersect(findall(x->x < 0.98, zeroPropSplicedGenes), findall(x->x < 0.98, zeroPropUnsplicedGenes))]

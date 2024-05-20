@@ -47,8 +47,13 @@ function perturbEffectPredictions(trainedNetwork, splicedData::Matrix{Float32}, 
         #matrix to store data in
         initialPredictions = Matrix{Float32}(undef, size(splicedData)[1], nCells)
         for n=1:nCells
-             tmpPred = @spawn trainedNetwork(splicedSub[:,n])[1]
-             initialPredictions[:,n] = fetch(tmpPred)
+             if n%3 == 0
+                println("initial: $n")
+             end
+             tmpPred = trainedNetwork(splicedSub[:,n])[1]
+             initialPredictions[:,n] = tmpPred
+            #  tmpPred = @spawn trainedNetwork(splicedSub[:,n])[1]
+            #  initialPredictions[:,n] = fetch(tmpPred)
         end
 
         #set negative predictions to zero
@@ -58,11 +63,16 @@ function perturbEffectPredictions(trainedNetwork, splicedData::Matrix{Float32}, 
         perturbPredictions = Array{Float32}(undef, size(splicedData)[1], size(splicedData)[1], nCells)
         #make predictions
             for n=1:nCells
-                for i=1:size(splicedData)[1]
+                if n%3 == 0
+                    println("perturbed: $n")
+                 end
+                    for i=1:size(splicedData)[1]
                     tmpCell = splicedSub[:,n]
                     tmpCell[i] = 0
-                    tmpPred = @spawn trainedNetwork(tmpCell)[1]
-                    perturbPredictions[:,i,n] = fetch(tmpPred)
+                    tmpPred = trainedNetwork(tmpCell)[1]
+                    perturbPredictions[:,i,n] = tmpPred
+                    # tmpPred = @spawn trainedNetwork(tmpCell)[1]
+                    # perturbPredictions[:,i,n] = fetch(tmpPred)
                 end
             end
     else
@@ -75,8 +85,13 @@ function perturbEffectPredictions(trainedNetwork, splicedData::Matrix{Float32}, 
         #matrix to store data in
         initialPredictions = Matrix{Float32}(undef, size(splicedData)[1], nCells)
             for n=1:nCells
-                 tmpPred = @spawn trainedNetwork(splicedSub[:,n])[1]
-                 initialPredictions[:,n] = fetch(tmpPred)
+                if n%50 == 0
+                    println("initial: $n")
+                 end
+                 tmpPred = trainedNetwork(splicedSub[:,n])[1]
+                 initialPredictions[:,n] = tmpPred
+                #  tmpPred = @spawn trainedNetwork(splicedSub[:,n])[1]
+                #  initialPredictions[:,n] = fetch(tmpPred)
             end
 
         #set negative predictions to zero
@@ -87,6 +102,7 @@ function perturbEffectPredictions(trainedNetwork, splicedData::Matrix{Float32}, 
         #make predictions
         for n=1:nCells
             for i= 1:length(perturbGeneInds)
+
                 tmpCell = splicedSub[:,n]
                 if length(perturbLevels) == 0
                     tmpCell[perturbGeneInds[i]] = 0
@@ -95,8 +111,13 @@ function perturbEffectPredictions(trainedNetwork, splicedData::Matrix{Float32}, 
                 else
                     tmpCell[perturbGeneInds[i]] = perturbLevels[i]
                 end
-                tmpPred = @spawn trainedNetwork(tmpCell)[1]
-                perturbPredictions[:,i,n] = fetch(tmpPred)
+                if n%3 == 0
+                    println("pred: $n")
+                end
+                tmpPred = trainedNetwork(tmpCell)[1]
+                perturbPredictions[:,i,n] = tmpPred
+                # tmpPred = @spawn trainedNetwork(tmpCell)[1]
+                # perturbPredictions[:,i,n] = fetch(tmpPred)
             end
         end
     end

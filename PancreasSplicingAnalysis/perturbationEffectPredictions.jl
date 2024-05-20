@@ -1,7 +1,13 @@
+include_prefix = "/Users/bbrener1/haxx/RNAForecasterPaperCode/"
+
+using Pkg
+Pkg.activate(include_prefix)
+
+include(include_prefix * "trainRNAForecaster.jl");
+include(include_prefix * "splicedDataPerturbationEffectPredictions.jl");
+
 using DiffEqFlux, DifferentialEquations
 using JLD2
-include("trainRNAForecaster.jl");
-include("splicedDataPerturbationEffectPredictions.jl");
 
 #read in the expression data for reference
 using DelimitedFiles
@@ -38,13 +44,20 @@ function loadForecaster(fileName::String, inputNodes::Int, hiddenLayerNodes::Int
     return model
 end
 
+print(size(splicedSub))
+
 outModel = loadForecaster("pancNeuralODEResult.jld2", size(splicedSub)[1], 6000)
 
-addprocs(7)
-@everywhere include("trainRNAForecaster.jl");
-@everywhere include("splicedDataPerturbationEffectPredictions.jl");
-KOResult = perturbEffectPredictions(outModel, splicedSub, 25)
-save_object("KO_test_predictions_25.jld2", KOResult)
+throw(Exception())
+
+# addprocs(7)
+# Macro expansion doesn't capture runtime strings I guess x_x
+# @everywhere include("/Users/bbrener1/haxx/RNAForecasterPaperCode/trainRNAForecaster.jl");
+# @everywhere include("/Users/bbrener1/haxx/RNAForecasterPaperCode/splicedDataPerturbationEffectPredictions.jl");
+# KOResult = perturbEffectPredictions(outModel, splicedSub, 25)
+# save_object("KO_test_predictions_25.jld2", KOResult)
+
+KOResult = JLD2.load("KO_test_predictions_25.jld2")["single_stored_object"]
 
 #functions to convert to interpretable output
 geneNames = readdlm("pancHVGNames.csv", ',')
@@ -158,13 +171,17 @@ geneNames = string.(vec(geneNames))
 pertPercentile = readdlm("PancTFPercentiles_ExpPert.csv")
 KOPercentile = readdlm("PancTFPercentiles_ExpKO.csv")
 
-p1 = heatmap(geneNames, geneNames, KOPercentile, xlabel = "KO'd Gene")
-p2 = heatmap(geneNames, geneNames, pertPercentile, xlabel = "Perturbed Gene")
+p1 = heatmap(geneNames, geneNames, KOPercentile, xlabel = "KO'd Gene",interpolate=false)
+p2 = heatmap(geneNames, geneNames, pertPercentile, xlabel = "Perturbed Gene",interpolate=false)
 
-savefig(p1, "KOPancGenePercentileHeatmap.pdf")
-savefig(p2, "PertPancGenePercentileHeatmap.pdf")
+savefig(p1, "KOPancGenePercentileHeatmap.png")
+savefig(p2, "PertPancGenePercentileHeatmap.png")
 
-KOPvals = readdlm("KOPancGenePvalMat.csv", ',')
+# KOPvals = readdlm("KOPancGenePvalMat.csv", ',')
+include("testingSigRegulation.jl")
+KOPvals = findSigRegulation(KOResult,geneNames)
+
+KOPvals = 
 p3 = heatmap(geneNames, geneNames, KOPvals, xlabel = "KO'd Gene",
  color = reverse(cgrad(:balance, scale = :log)))
 savefig(p3, "KOPancGenePvalHeatmap.pdf")

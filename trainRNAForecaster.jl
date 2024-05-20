@@ -1,6 +1,6 @@
 using DiffEqFlux, DifferentialEquations
 using Flux
-using CUDA
+# using CUDA
 using Flux: mse
 using Random, Statistics, StatsBase, LinearRegression
 using Distributed
@@ -90,6 +90,7 @@ function trainNetwork(trainData, nGenes::Int,
 
     losses = Vector{Float32}(undef, nEpochs)
     for epoch = 1:nEpochs
+        println("Epoch $epoch")
       for d in trainData
         gs = gradient(Flux.params(model)) do
           l = loss(d...)
@@ -127,7 +128,8 @@ function trainNetworkVal(trainData, valData, nGenes::Int, hiddenLayerNodes::Int,
 
    losses = Matrix{Float32}(undef, nEpochs, 2)
    for epoch = 1:nEpochs
-     for d in trainData
+    println("Epoch $epoch")
+    for d in trainData
        gs = gradient(Flux.params(model)) do
          l = loss(d...)
        end
@@ -178,114 +180,193 @@ Each should be log normalized and have genes as rows and cells as columns.
 
 """
 
-function trainRNAForecaster(expressionDataT1::Matrix{Float32}, expressionDataT2::Matrix{Float32};
-     trainingProp::Float64 = 0.8, hiddenLayerNodes::Int = 2*size(expressionDataT1)[1],
-     shuffleData::Bool = true, seed::Int = 123, learningRate::Float64 = 0.005,
-     nEpochs::Int = 10, batchsize::Int = 100, checkStability::Bool = false, iterToCheck::Int = 50,
-     stabilityThreshold::Float32 = 2*maximum(expressionDataT1), stabilityChecksBeforeFail::Int = 5,
-     useGPU::Bool = false)
 
-     println("Loading Data...")
-      #randomly shuffle the input data cells
-      if shuffleData
-         Random.seed!(seed)
-         shuffling = shuffle(1:size(expressionDataT1)[2])
-         expressionDataT1 = expressionDataT1[:,shuffling]
-         expressionDataT2 = expressionDataT2[:,shuffling]
-     end
+function trainRNAForecaster(
+    expressionDataT1::Matrix{Float32}, 
+    expressionDataT2::Matrix{Float32};
+    trainingProp::Float64 = 0.8, 
+    hiddenLayerNodes::Int = 2*size(expressionDataT1)[1],
+    shuffleData::Bool = true, 
+    seed::Int = 123, 
+    learningRate::Float64 = 0.005,
+    nEpochs::Int = 10, 
+    batchsize::Int = 100, 
+    checkStability::Bool = false, 
+    iterToCheck::Int = 50,
+    stabilityThreshold::Float32 = 2*maximum(expressionDataT1), 
+    stabilityChecksBeforeFail::Int = 5,
+    useGPU::Bool = false)
 
-     #get the number of genes in the data
-     nGenes = size(expressionDataT1)[1]
+    println("Loading Data...")
+    #randomly shuffle the input data cells
+    if shuffleData
+        Random.seed!(seed)
+        shuffling = shuffle(1:size(expressionDataT1)[2])
+        expressionDataT1 = expressionDataT1[:,shuffling]
+        expressionDataT2 = expressionDataT2[:,shuffling]
+    end
 
-     if trainingProp < 1.0
-         #subset the data into training and validation sets
-         #determine how many cells should be in training set
-         cellsInTraining = Int(round(size(expressionDataT1)[2]*trainingProp))
+    if trainingProp < 1.0
+        #subset the data into training and validation sets
+        #determine how many cells should be in training set
+        cellsInTraining = Int(round(size(expressionDataT1)[2]*trainingProp))
+        
+        trainX = expressionDataT1[:,1:cellsInTraining]
+        trainY = expressionDataT2[:,1:cellsInTraining]
+        valX = expressionDataT1[:,cellsInTraining+1:size(expressionDataT1)[2]]
+        valY = expressionDataT2[:,cellsInTraining+1:size(expressionDataT1)[2]]
+        
+        trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
+        valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)])
 
-         trainX = expressionDataT1[:,1:cellsInTraining]
-         trainY = expressionDataT2[:,1:cellsInTraining]
-         valX = expressionDataT1[:,cellsInTraining+1:size(expressionDataT1)[2]]
-         valY = expressionDataT2[:,cellsInTraining+1:size(expressionDataT1)[2]]
+    else
+        trainX = expressionDataT1
+        trainY = expressionDataT2
 
-         if useGPU
-             trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)]) |> gpu
-             valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)]) |> gpu
-         else
-             trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
-             valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)])
-         end
+        trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
+    end
 
-         println("Training model...")
-         if checkStability
-             iter = 1
-             #repeat until model is stable or until user defined break point
-             while checkStability
-                 if iter > stabilityChecksBeforeFail
-                     error("Failed to find a stable solution after " * string(iter-1) * " attempts.
-                      Try increasing the stabilityChecksBeforeFail variable or, if a slightly less
-                      stable solution is acceptable, increase the stabilityThreshold variable.")
-                 end
+        
+    if useGPU
+        trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)]) |> gpu
+        valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)]) |> gpu
+    end
 
-                 #train the neural ODE
-                 trainedNet = trainNetworkVal(trainData, valData,
-                      nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
+    println("Training model...")
 
-                #check model stability
-                checkStability = checkModelStability(trainedNet[1], trainX, iterToCheck, stabilityThreshold, useGPU, batchsize)
-                Random.seed!(seed+iter)
-                iter +=1
-            end
-        else
-            #train the neural ODE
-            trainedNet = trainNetworkVal(trainData, valData,
-                 nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
-       end
+    trainedNet = trainNetworkVal(trainData, valData, 
+        nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
 
-       return trainedNet
+    # optionally re-train if we are checking stability
+    iter = 1
+    while checkStability
+        println("Re-training unstable $iter")
+        if iter > stabilityChecksBeforeFail
+            error("Failed to find a stable solution after " * string(iter-1) * " attempts.
+            Try increasing the stabilityChecksBeforeFail variable or, if a slightly less
+            stable solution is acceptable, increase the stabilityThreshold variable.")
+        end
 
-    #in the case where we want to use the entire data set to train the model
-    #(e.g. if we have already validated its performance and we now want to
-    #train using the full data set)
-     else
-         trainX = expressionDataT1
-         trainY = expressionDataT2
+        #train the neural ODE
+        trainedNet = trainNetworkVal(trainData, valData,
+        nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
 
-         if useGPU
-             trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)]) |> gpu
-         else
-             trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
-         end
+        #check model stability
+        checkStability = checkModelStability(trainedNet[1], trainX, iterToCheck, stabilityThreshold, useGPU, batchsize)
+        Random.seed!(seed+iter)
+        iter +=1
+    end
 
-         println("Training model...")
-         if checkStability
-             iter = 1
-             #repeat until model is stable or until user defined break point
-             while checkStability
-                 if iter > stabilityChecksBeforeFail
-                     error("Failed to find a stable solution after " * string(iter-1) * " attempts.
-                      Try increasing the stabilityChecksBeforeFail variable or, if a slightly less
-                      stable solution is acceptable, increase the stabilityThreshold variable.")
-                 end
+    return trainedNet
 
-                 #train the neural ODE
-                 trainedNet = trainNetwork(trainData, nGenes, hiddenLayerNodes,
-                  learningRate, nEpochs, useGPU)
+# function trainRNAForecaster(expressionDataT1::Matrix{Float32}, expressionDataT2::Matrix{Float32};
+#      trainingProp::Float64 = 0.8, hiddenLayerNodes::Int = 2*size(expressionDataT1)[1],
+#      shuffleData::Bool = true, seed::Int = 123, learningRate::Float64 = 0.005,
+#      nEpochs::Int = 10, batchsize::Int = 100, checkStability::Bool = false, iterToCheck::Int = 50,
+#      stabilityThreshold::Float32 = 2*maximum(expressionDataT1), stabilityChecksBeforeFail::Int = 5,
+#      useGPU::Bool = false)
 
-                #check model stability
-                checkStability = checkModelStability(trainedNet[1], trainX,
-                 iterToCheck, stabilityThreshold, useGPU, batchsize)
-                Random.seed!(seed+iter)
-                iter +=1
-            end
-        else
-            #train the neural ODE
-            trainedNet = trainNetwork(trainData, nGenes, hiddenLayerNodes,
-             learningRate, nEpochs, useGPU)
-       end
+#      println("Loading Data...")
+#       #randomly shuffle the input data cells
+#       if shuffleData
+#          Random.seed!(seed)
+#          shuffling = shuffle(1:size(expressionDataT1)[2])
+#          expressionDataT1 = expressionDataT1[:,shuffling]
+#          expressionDataT2 = expressionDataT2[:,shuffling]
+#      end
 
-       return trainedNet
-     end
- end
+#      #get the number of genes in the data
+#      nGenes = size(expressionDataT1)[1]
+
+#      if trainingProp < 1.0
+#          #subset the data into training and validation sets
+#          #determine how many cells should be in training set
+#          cellsInTraining = Int(round(size(expressionDataT1)[2]*trainingProp))
+
+#          trainX = expressionDataT1[:,1:cellsInTraining]
+#          trainY = expressionDataT2[:,1:cellsInTraining]
+#          valX = expressionDataT1[:,cellsInTraining+1:size(expressionDataT1)[2]]
+#          valY = expressionDataT2[:,cellsInTraining+1:size(expressionDataT1)[2]]
+
+#          if useGPU
+#              trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)]) |> gpu
+#              valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)]) |> gpu
+#          else
+#              trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
+#              valData = ([(valX[:,i], valY[:,i]) for i in partition(1:size(valX)[2], batchsize)])
+#          end
+
+#          println("Training model...")
+#          if checkStability
+#              iter = 1
+#              #repeat until model is stable or until user defined break point
+#              while checkStability
+#                  if iter > stabilityChecksBeforeFail
+#                      error("Failed to find a stable solution after " * string(iter-1) * " attempts.
+#                       Try increasing the stabilityChecksBeforeFail variable or, if a slightly less
+#                       stable solution is acceptable, increase the stabilityThreshold variable.")
+#                  end
+
+#                  #train the neural ODE
+#                  trainedNet = trainNetworkVal(trainData, valData,
+#                       nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
+
+#                 #check model stability
+#                 checkStability = checkModelStability(trainedNet[1], trainX, iterToCheck, stabilityThreshold, useGPU, batchsize)
+#                 Random.seed!(seed+iter)
+#                 iter +=1
+#             end
+#         else
+#             #train the neural ODE
+#             trainedNet = trainNetworkVal(trainData, valData,
+#                  nGenes, hiddenLayerNodes, learningRate, nEpochs, useGPU)
+#        end
+
+#        return trainedNet
+
+#     #in the case where we want to use the entire data set to train the model
+#     #(e.g. if we have already validated its performance and we now want to
+#     #train using the full data set)
+#      else
+#          trainX = expressionDataT1
+#          trainY = expressionDataT2
+
+#          if useGPU
+#              trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)]) |> gpu
+#          else
+#              trainData = ([(trainX[:,i], trainY[:,i]) for i in partition(1:size(trainX)[2], batchsize)])
+#          end
+
+#          println("Training model...")
+#          if checkStability
+#              iter = 1
+#              #repeat until model is stable or until user defined break point
+#              while checkStability
+#                  if iter > stabilityChecksBeforeFail
+#                      error("Failed to find a stable solution after " * string(iter-1) * " attempts.
+#                       Try increasing the stabilityChecksBeforeFail variable or, if a slightly less
+#                       stable solution is acceptable, increase the stabilityThreshold variable.")
+#                  end
+
+#                  #train the neural ODE
+#                  trainedNet = trainNetwork(trainData, nGenes, hiddenLayerNodes,
+#                   learningRate, nEpochs, useGPU)
+
+#                 #check model stability
+#                 checkStability = checkModelStability(trainedNet[1], trainX,
+#                  iterToCheck, stabilityThreshold, useGPU, batchsize)
+#                 Random.seed!(seed+iter)
+#                 iter +=1
+#             end
+#         else
+#             #train the neural ODE
+#             trainedNet = trainNetwork(trainData, nGenes, hiddenLayerNodes,
+#              learningRate, nEpochs, useGPU)
+#        end
+
+#        return trainedNet
+#      end
+#  end
 
 
  """
