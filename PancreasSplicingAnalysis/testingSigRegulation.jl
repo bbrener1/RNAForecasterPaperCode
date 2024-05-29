@@ -2,18 +2,18 @@
 using HypothesisTests
 using DataFrames
 
-OneSampleTTest(KOResult[3][2,1,:])
+# OneSampleTTest(KOResult[3][2,1,:])
 
-for i=1:100
-    for j=1:100
-        OneSampleTTest(KOResult[3][i,j,:])
-    end
-end
+# for i=1:100
+#     for j=1:100
+#         OneSampleTTest(KOResult[3][i,j,:])
+#     end
+# end
 
-devGeneInds1 = findall(in(pancDevGenes), outDF[:,1])
-devGeneInds2 = findall(in(pancDevGenes), outDF[:,2])
-devGeneInds = intersect(devGeneInds1, devGeneInds2)
-outDF[devGeneInds,:]
+# devGeneInds1 = findall(in(pancDevGenes), outDF[:,1])
+# devGeneInds2 = findall(in(pancDevGenes), outDF[:,2])
+# devGeneInds = intersect(devGeneInds1, devGeneInds2)
+# outDF[devGeneInds,:]
 
 function findSigRegulation(perturbData, geneNames::Vector{String};
     pvalCut::Float64 = 0.05)

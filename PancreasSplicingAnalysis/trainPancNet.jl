@@ -27,12 +27,13 @@ unsplicedSub = unspliced[intersect(findall(x->x < 0.98, zeroPropSplicedGenes), f
 splicedSub = Float32.(log1p.(splicedSub))
 unsplicedSub = Float32.(log1p.(unsplicedSub))
 
+writedlm("pancSplicedModelInput.csv", splicedData, ",")
+writedlm("pancUnsplicedModelInput.csv", unsplicedData, ",")
+
 trainedModel = trainRNAForecaster(splicedSub, unsplicedSub, hiddenLayerNodes = 6000,
  batchsize = 200, learningRate = 0.0001, checkStability = false, useGPU = false, nEpochs = 10)
 
 outModel = cpu(trainedModel[1])
-
-# Changed to state from params here
 save_object("pancNeuralODEResult.jld2", Flux.state(outModel))
 
 writedlm("pancGPU_Losses.csv", trainedModel[2], ',')

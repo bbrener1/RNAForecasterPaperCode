@@ -8,6 +8,7 @@ include(include_prefix * "splicedDataPerturbationEffectPredictions.jl");
 
 using DiffEqFlux, DifferentialEquations
 using JLD2
+using Flux: loadmodel!
 
 #read in the expression data for reference
 using DelimitedFiles
@@ -30,16 +31,8 @@ unsplicedSub = unspliced[intersect(findall(x->x < 0.98, zeroPropSplicedGenes), f
 splicedSub = Float32.(log1p.(splicedSub))
 unsplicedSub = Float32.(log1p.(unsplicedSub))
 
-using Flux: loadmodel!
 function loadForecaster(fileName::String, inputNodes::Int, hiddenLayerNodes::Int)
-    #recreate neural network structure
-    nn = Chain(Dense(inputNodes, hiddenLayerNodes, relu),
-               Dense(hiddenLayerNodes, inputNodes))
-    model = NeuralODE(nn, (0.0f0, 1.0f0), Tsit5(),
-                       save_everystep = false,
-                       reltol = 1e-3, abstol = 1e-3,
-                       save_start = false)
-    #load parameters into the model
+    model = defaultNetwork(inputNodes,hiddenLayerNodes)
     model = loadmodel!(model, load_object(fileName))
     return model
 end
@@ -47,15 +40,6 @@ end
 print(size(splicedSub))
 
 outModel = loadForecaster("pancNeuralODEResult.jld2", size(splicedSub)[1], 6000)
-
-throw(Exception())
-
-# addprocs(7)
-# Macro expansion doesn't capture runtime strings I guess x_x
-# @everywhere include("/Users/bbrener1/haxx/RNAForecasterPaperCode/trainRNAForecaster.jl");
-# @everywhere include("/Users/bbrener1/haxx/RNAForecasterPaperCode/splicedDataPerturbationEffectPredictions.jl");
-# KOResult = perturbEffectPredictions(outModel, splicedSub, 25)
-# save_object("KO_test_predictions_25.jld2", KOResult)
 
 KOResult = JLD2.load("KO_test_predictions_25.jld2")["single_stored_object"]
 

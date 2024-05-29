@@ -1,6 +1,3 @@
-using Pkg
-Pkg.activate("../")
-
 using PyCall
 
 py"""
@@ -44,9 +41,9 @@ unsplicedData = transpose(unsplicedData)
 
 #write
 using DelimitedFiles
-# writedlm("pancSplicedCounts.csv", splicedData, ",")
-# writedlm("pancUnsplicedCounts.csv", unsplicedData, ",")
-# writedlm("pancGeneNames.csv", geneNames, ",")
+writedlm("pancSplicedCounts.csv", splicedData, ",")
+writedlm("pancUnsplicedCounts.csv", splicedData, ",")
+writedlm("pancGeneNames.csv", geneNames, ",")
 
 writedlm("pancSplicedCountsHVGs.csv", splicedVarGenes, ",")
 writedlm("pancUnsplicedCountsHVGs.csv", unsplicedVarGenes, ",")
