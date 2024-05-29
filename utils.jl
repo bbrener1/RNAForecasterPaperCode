@@ -112,12 +112,12 @@ packages afterwards.
 of genes in the data the network was trained on
 * hiddenLayerNodes - number of hidden layer nodes in the network
 """
+
+
 function loadForecaster(fileName::String)
     model = load_object(fileName)
     return model
 end
-
-
 
 function saveEnsembleForecaster(trainedForecaster, fileName::String; gpu::Bool = false)
 

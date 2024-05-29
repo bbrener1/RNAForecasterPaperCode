@@ -1,0 +1,13 @@
+*.tsv
+*.csv
+*.jld2
+.ipynb_checkpoints/*
+__pycache__
+*.png
+*.jld2
+*.h5ad
+PancreasSplicingAnalysis/.ipynb_checkpoints
+src/tmp/*
+tmp
+*.toml
+.DS_Store
