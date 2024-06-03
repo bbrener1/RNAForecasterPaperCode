@@ -89,7 +89,7 @@ function predictCellFutures(trainedNetwork, expressionData::Matrix{Float32}, tSt
             slice_to = min(size(expressionData)[2],(j*batchsize))
             local_predictions = cpu(trainedNetwork(inputData[[j]]...)[1])
             # predictions[:,slice_from:slice_to,i] = local_predictions 
-            predictions[:,slice_from:slice_to,i] = (local_predictions * damping) + (inputData[[j]][1] * (1-damping))
+            predictions[:,slice_from:slice_to,i] = (local_predictions .* damping) + (inputData[[j]][1] .* (1.0f0-damping))
         end
 
 

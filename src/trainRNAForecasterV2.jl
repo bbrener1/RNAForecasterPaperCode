@@ -23,11 +23,18 @@ function meanLoss(data_loader, model)
 end
 
 function trainNetwork(trainData, hiddenLayerNodes::Int; 
-    learningRate::Float64 = 1e-4, nEpochs::Int = 10, useGPU::Bool = false, valData = nothing)
+    learningRate::Float64 = 1e-4, nEpochs::Int = 10, useGPU::Bool = false, valData = nothing, previousModel = nothing)
 
     width = size(trainData[1][1])[1]
 
-    nn,model = defaultNetwork(width,hiddenLayerNodes)
+    if previousModel == nothing    
+        nn,model = defaultNetwork(width,hiddenLayerNodes)
+    else
+        nn = nothing
+        model = previousModel
+    end
+
+    # nn,model = defaultNetwork(width,hiddenLayerNodes)
 
     if useGPU
         trainData = gpu(trainData)
@@ -51,6 +58,7 @@ function trainNetwork(trainData, hiddenLayerNodes::Int;
         if valData != nothing
             losses[epoch,2] = meanLoss(valData, model)
         end
+        println("Loss: $(losses[epoch])")
     end
 
     return (model, losses)
@@ -104,7 +112,7 @@ These are passed on to subsetData
 function trainRNAForecaster(expressionDataT1::Matrix{Float32}, expressionDataT2::Matrix{Float32};
     trainingProp::Float64 = 0.8, shuffleData::Bool = true, hiddenLayerNodes::Int = 2*size(expressionDataT1)[1], seed::Int = 123, 
     learningRate::Float64 = 0.005, nEpochs::Int = 10, batchsize::Int = 100, checkStability::Bool = false, iterToCheck::Int = 50,
-    stabilityThreshold::Float32 = 2*maximum(expressionDataT1), stabilityChecksBeforeFail::Int = 5, useGPU::Bool = false)
+    stabilityThreshold::Float32 = 2*maximum(expressionDataT1), stabilityChecksBeforeFail::Int = 5, useGPU::Bool = false, previousModel = nothing)
 
     println("Loading Data...")
 
@@ -113,7 +121,7 @@ function trainRNAForecaster(expressionDataT1::Matrix{Float32}, expressionDataT2:
     println("Training model...")
 
     trainedNet = trainNetwork(trainData, hiddenLayerNodes, learningRate=learningRate, 
-        nEpochs=nEpochs, useGPU=useGPU, valData=valData)
+        nEpochs=nEpochs, useGPU=useGPU, valData=valData, previousModel = previousModel)
 
     # optionally re-train if we are checking stability
     iter = 1
@@ -237,3 +245,42 @@ function defaultNetwork(width,hiddenLayerNodes)
     return nn,model
 
 end
+
+function simpleDouble(width,hiddenLayerNodes) 
+
+    nn = Chain(
+        Dense(width, hiddenLayerNodes, relu),
+        Dense(width, hiddenLayerNodes, relu),
+        Dense(hiddenLayerNodes, width)
+    )
+    
+    model = NeuralODE(nn, (0.0f0, 1.0f0), Tsit5(),
+                    save_everystep = false,
+                    reltol = 1e-3, abstol = 1e-3,
+                    save_start = false)
+    
+    return nn,model
+
+end
+
+
+function compressingNetwork(width,wideHiddenLayerNodes,narrowHiddenLayerNodes) 
+
+    nn = Chain(
+        Dense(width, wideHiddenLayerNodes, relu),
+        Dense(wideHiddenLayerNodes,narrowHiddenLayerNodes, relu),
+        Dense(narrowHiddenLayerNodes,wideHiddenLayerNodes, relu),
+        Dense(wideHiddenLayerNodes,narrowHiddenLayerNodes, relu),
+        Dense(narrowHiddenLayerNodes,wideHiddenLayerNodes, relu),
+        Dense(wideHiddenLayerNodes,width),
+    )
+    
+    model = NeuralODE(nn, (0.0f0, 1.0f0), Tsit5(),
+                    save_everystep = false,
+                    reltol = 1e-3, abstol = 1e-3,
+                    save_start = false)
+    
+    return nn,model
+
+end
+
