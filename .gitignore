@@ -11,3 +11,4 @@ src/tmp/*
 tmp
 *.toml
 .DS_Store
+*-checkpoint.jl
