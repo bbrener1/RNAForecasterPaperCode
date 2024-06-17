@@ -6,6 +6,42 @@ using Random, Statistics, StatsBase, LinearRegression
 using Base.Iterators: partition
 using DataFrames
 
+function predictSimplified(trainedNetwork, expressionData::Matrix{Float32}, tSteps::Int = 6;
+     useGPU::Bool = false, batchSize::Int = 100, damping::Float32 = 0.3f0)
+
+    inputData = copy(expressionData)
+
+    if useGPU
+        trainedNetwork = gpu(trainedNetwork)
+    end
+            
+    predictions = Array{Float32}(undef, size(expressionData)[1], size(expressionData)[2], tSteps)
+
+    for i=1:tSteps
+
+        println("Predicting step $i")
+
+        #allows the data to be processed by the neural network simultaneously
+        inputData = ([inputData[:,k] for k in partition(1:size(inputData)[2], batchSize)])
+
+        if useGPU
+            inputData = gpu(inputData)
+        end
+
+        for j=1:length(inputData)
+            slice_from = (1+((j-1)*batchSize))
+            slice_to = min(size(expressionData)[2],(j*batchSize))
+            local_predictions = cpu(trainedNetwork(inputData[[j]]...)[1])
+            # predictions[:,slice_from:slice_to,i] = local_predictions 
+            predictions[:,slice_from:slice_to,i] = (local_predictions .* damping) + (inputData[[j]][1] .* (1.0f0-damping))
+        end
+
+        inputData = predictions[:,:,i]
+    end
+
+    return predictions
+end
+
 """
 `predictCellFutures(trainedNetwork, expressionData::Matrix{Float32}, tSteps::Int;
      perturbGenes::Vector{String} = Vector{String}(undef,0), geneNames::Vector{String} = Vector{String}(undef,0),
@@ -35,7 +71,7 @@ function predictCellFutures(trainedNetwork, expressionData::Matrix{Float32}, tSt
      perturbGenes::Vector{String} = Vector{String}(undef,0), geneNames::Vector{String} = Vector{String}(undef,0),
      perturbationLevels::Vector{Float32} = Vector{Float32}(undef,0),
      enforceMaxPred::Bool = true, maxPredictionMult::Float32 = 2.0f0,
-     useGPU::Bool = false, batchsize::Int = 100, damping::Float32 = 0.3f0)
+     useGPU::Bool = false, batchSize::Int = 100, damping::Float32 = 0.3f0)
 
     if enforceMaxPred
         geneMaxes = Array{Float32}(undef, size(expressionData)[1])
@@ -78,15 +114,15 @@ function predictCellFutures(trainedNetwork, expressionData::Matrix{Float32}, tSt
         println("Predicting step $i")
 
         #allows the data to be processed by the neural network simultaneously
-        inputData = ([inputData[:,k] for k in partition(1:size(inputData)[2], batchsize)])
+        inputData = ([inputData[:,k] for k in partition(1:size(inputData)[2], batchSize)])
 
         if useGPU
             inputData = gpu(inputData)
         end
 
         for j=1:length(inputData)
-            slice_from = (1+((j-1)*batchsize))
-            slice_to = min(size(expressionData)[2],(j*batchsize))
+            slice_from = (1+((j-1)*batchSize))
+            slice_to = min(size(expressionData)[2],(j*batchSize))
             local_predictions = cpu(trainedNetwork(inputData[[j]]...)[1])
             # predictions[:,slice_from:slice_to,i] = local_predictions 
             predictions[:,slice_from:slice_to,i] = (local_predictions .* damping) + (inputData[[j]][1] .* (1.0f0-damping))
@@ -119,7 +155,7 @@ function ensembleExpressionPredictions(networks, expressionData::Matrix{Float32}
     perturbGenes::Vector{String} = Vector{String}(undef,0), geneNames::Vector{String} = Vector{String}(undef,0),
     perturbationLevels::Vector{Float32} = Vector{Float32}(undef,0),
     enforceMaxPred::Bool = true, maxPredictionMult::Float32 = 2.0f0,
-    useGPU::Bool = false, batchsize::Int = 100)
+    useGPU::Bool = false, batchSize::Int = 100)
 
     # nProcs is unused because current implementations slam all the cores for each single execution anyway
 
@@ -129,7 +165,7 @@ function ensembleExpressionPredictions(networks, expressionData::Matrix{Float32}
                 tSteps, perturbGenes= perturbGenes, geneNames = geneNames,
                 perturbationLevels = perturbationLevels,
                 enforceMaxPred = enforceMaxPred, maxPredictionMult = maxPredictionMult,
-                useGPU = useGPU, batchsize = batchsize)
+                useGPU = useGPU, batchSize = batchSize)
     end
 
     #wrangle the data shape and get median predictions from networks

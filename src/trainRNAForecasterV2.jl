@@ -111,7 +111,7 @@ These are passed on to subsetData
 
 function trainRNAForecaster(expressionDataT1::Matrix{Float32}, expressionDataT2::Matrix{Float32};
     trainingProp::Float64 = 0.8, shuffleData::Bool = true, hiddenLayerNodes::Int = 2*size(expressionDataT1)[1], seed::Int = 123, 
-    learningRate::Float64 = 0.005, nEpochs::Int = 10, batchsize::Int = 100, checkStability::Bool = false, iterToCheck::Int = 50,
+    learningRate::Float64 = 0.005, nEpochs::Int = 10, batchSize::Int = 100, checkStability::Bool = false, iterToCheck::Int = 50,
     stabilityThreshold::Float32 = 2*maximum(expressionDataT1), stabilityChecksBeforeFail::Int = 5, useGPU::Bool = false, previousModel = nothing)
 
     println("Loading Data...")

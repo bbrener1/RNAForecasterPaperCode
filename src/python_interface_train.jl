@@ -13,7 +13,7 @@ if length(ARGS) > 0
 end
 
 function load_params()
-    file = open(joinpath(prefix,"run_params.txt"), "r")
+    file = open(joinpath(prefix,"training_params.txt"), "r")
     dict_obj = JSON.parse(read(file, String))
     close(file)
     translated = Dict(Symbol(k) => v for (k,v) in dict_obj)
@@ -21,10 +21,10 @@ function load_params()
 end
 
 function load_data(prefix)
-    path_t1 = joinpath(prefix,"t1.csv")
-    path_t2 = joinpath(prefix,"t2.csv")
-    t1 = readdlm(path_t1, ',')
-    t2 = readdlm(path_t2, ',')
+    path_t1 = joinpath(prefix,"t1.tsv")
+    path_t2 = joinpath(prefix,"t2.tsv")
+    t1 = readdlm(path_t1)
+    t2 = readdlm(path_t2)
     return (t1,t2)
 end
 
