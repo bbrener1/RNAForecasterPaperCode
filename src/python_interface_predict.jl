@@ -26,7 +26,7 @@ end
 
 function load_data(prefix)
     path_pt1 = joinpath(prefix,"pt1.tsv")
-    pt1 = readdlm(path_pt1)
+    pt1 = transpose(readdlm(path_pt1))
     pt1 = Float32.(pt1)
     return pt1
 end
@@ -40,17 +40,28 @@ function load_training_params()
 end
 
 function load_prediction_params()
+    params = Dict(
+        :tSteps => 6,
+        :useGPU => false,
+        :damping => 0.7f0,
+        :batchSize => 100
+    )
+
     file = open(joinpath(prefix,"prediction_params.txt"), "r")
     dict_obj = JSON.parse(read(file, String))
     close(file)
     translated = Dict(Symbol(k) => v for (k,v) in dict_obj)
-    return translated
+    for (key,value) in translated
+        params[key] = value
+    end
+    params[:damping] = Float32.(params[:damping])
+    return params
 end
 
 function write_futures(futures) 
     for i = 1:(size(futures)[3])
         println("Writing timepoint $i")
-        writedlm(joinpath(prefix,"./ft$i.tsv"),futures[:,:,i])
+        writedlm(joinpath(prefix,"./ft$i.tsv"),transpose(futures[:,:,i]))
     end
 end
 
@@ -63,6 +74,6 @@ println("Read params $prediction_params, $training_params")
 t1 = load_data(prefix) 
 model = load_model(size(t1)[1],training_params[:hiddenLayerNodes])
 
-# futures = predictSimplified(model,t1,prediction_params...)
-futures = predictSimplified(model,t1)
+futures = predictSimplified(model,t1;prediction_params...)
+# futures = predictSimplified(model,t1,damping=Float32.(prediction_params[:damping]))
 write_futures(futures)

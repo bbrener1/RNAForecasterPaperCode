@@ -6,8 +6,8 @@ using Random, Statistics, StatsBase, LinearRegression
 using Base.Iterators: partition
 using DataFrames
 
-function predictSimplified(trainedNetwork, expressionData::Matrix{Float32}, tSteps::Int = 6;
-     useGPU::Bool = false, batchSize::Int = 100, damping::Float32 = 0.3f0)
+function predictSimplified(trainedNetwork, expressionData::Matrix{Float32}; tSteps::Int = 6,
+     useGPU::Bool = false, batchSize::Int = 100, damping::Float32 = 0.7f0)
 
     inputData = copy(expressionData)
 

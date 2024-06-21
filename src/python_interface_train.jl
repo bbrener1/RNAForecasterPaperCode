@@ -23,8 +23,8 @@ end
 function load_data(prefix)
     path_t1 = joinpath(prefix,"t1.tsv")
     path_t2 = joinpath(prefix,"t2.tsv")
-    t1 = readdlm(path_t1)
-    t2 = readdlm(path_t2)
+    t1 = transpose(readdlm(path_t1))
+    t2 = transpose(readdlm(path_t2))
     return (t1,t2)
 end
 

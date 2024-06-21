@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from umap import UMAP
 from sklearn.decomposition import PCA
 from scipy.spatial.distance import pdist,squareform
+import numpy as np
 
 
 def delta_graph(origin,delta,highlight=[0,1],arrow_frequency=30,figsize=(10,8)):
@@ -47,6 +48,18 @@ def umap_velocity_via_joint(t0,t1):
     return u_t0,u_t1,u_t_v
 
 
+def umap_trajectory_joint(timepoints):
+    if len(timepoints > 100):
+        raise Exception("You want timepoints in a list, I think you might have passed a matrix, primary dimension > 100")
+    stacked = np.vstack(timepoints)
+    
+    umap_model = UMAP(n_neighbors=15,min_dist=0.5, spread=1.0, n_components=2, negative_sample_rate=5, random_state=0,metric='cosine')
+    u_t_joint = umap_model.fit_transform(stacked)
+    
+    running_totals = np.cumsum([t.shape[0] for t in timepoints])
+    embedded_timepoints = [u_t_joint[beginning:end] for beginning,end in zip(running_totals[:-1],running_totals[1:])]
+    
+    return embedded_timepoints
 
 def local_velocity_smoothness(velocities,knn,metric='cosine'):
     smoothness = []
