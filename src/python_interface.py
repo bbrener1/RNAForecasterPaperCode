@@ -57,7 +57,7 @@ def train(t1,t2, prefix=default_prefix(), params=None):
 
     write_training_data(t1,t2,prefix=prefix)
     write_parameters(params,"training_params.txt",prefix=prefix,)
-    julia_path = os.path.join(julia_prefix(),"python_interface_train.jl")
+    julia_path = os.path.join(julia_prefix(),f"python_interface_train.jl")
     sp.run(["julia",julia_path,prefix])
 
 

@@ -33,6 +33,8 @@ println("Working at $prefix")
 params = load_params()
 println("Read params $params")
 
+ensembleSuffix = pop!(params,:ensembleSuffix,"1")
+
 (t1,t2) = load_data(prefix) 
 (t1,t2) = (Float32.(t1),Float32.(t2))
 println("Read data $(summary(t1)),$(summary(t2))")
@@ -40,5 +42,5 @@ println("Read data $(summary(t1)),$(summary(t2))")
 trained = trainRNAForecaster(t1,t2;params...)
 
 outModel = cpu(trained[1])
-model_path = joinpath(prefix,"trained.jld2")
+model_path = joinpath(prefix,"trained_e$ensembleSuffix.jld2")
 save_object(model_path, Flux.state(outModel))

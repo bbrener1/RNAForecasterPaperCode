@@ -1,9 +1,12 @@
 *.tsv
 *.csv
 *.jld2
-.ipynb_checkpoints/*
+*/.ipynb_checkpoints/*
+*-checkpoint.ipynb
+*-checkpoint.py
 __pycache__
 *.png
+*.pdf
 *.jld2
 *.h5ad
 PancreasSplicingAnalysis/.ipynb_checkpoints
@@ -12,3 +15,4 @@ tmp
 *.toml
 .DS_Store
 *-checkpoint.jl
+*.rds

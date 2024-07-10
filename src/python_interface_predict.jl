@@ -17,8 +17,8 @@ if length(ARGS) > 0
     prefix = ARGS[1]
 end
 
-function load_model(inputNodes,hiddenLayerNodes)
-    model_path = joinpath(prefix,"trained.jld2")
+function load_model(inputNodes,hiddenLayerNodes,ensemblePrefix)
+    model_path = joinpath(prefix,"trained_e$(ensemblePrefix).jld2")
     _,blank_model = defaultNetwork(inputNodes,hiddenLayerNodes)
     model = loadmodel!(blank_model, load_object(model_path))
     return model
@@ -71,8 +71,10 @@ training_params = load_training_params()
 prediction_params = load_prediction_params()
 println("Read params $prediction_params, $training_params")
 
+ensemble_prefix = pop!(prediction_params,:ensembleSuffix,"1")
+
 t1 = load_data(prefix) 
-model = load_model(size(t1)[1],training_params[:hiddenLayerNodes])
+model = load_model(size(t1)[1],training_params[:hiddenLayerNodes],ensemble_prefix)
 
 futures = predictSimplified(model,t1;prediction_params...)
 # futures = predictSimplified(model,t1,damping=Float32.(prediction_params[:damping]))
