@@ -28,12 +28,14 @@ def mean_velo(tg,data):
     # return unitized
 
 
-def umap_velocity_via_transform(t0,t1):
-    umap_model = UMAP(n_neighbors=15,min_dist=0.5, spread=1.0, n_components=2, negative_sample_rate=5, random_state=0,metric='cosine')
-    u_t0 = umap_model.fit_transform(t0)
+def umap_velocity_via_transform(t0,t1,umap_model=None):
+    if umap_model is None:
+        umap_model = UMAP(n_neighbors=15,min_dist=0.5, spread=1.0, n_components=2, negative_sample_rate=5, random_state=0,metric='cosine')
+        u_t0 = umap_model.fit(t0)
+    u_t0 = umap_model.transform(t0)
     u_t1 = umap_model.transform(t1)
     u_t_v = u_t1 - u_t0
-    return u_t0,u_t1,u_t_v
+    return u_t0,u_t1,u_t_v,umap_model
 
 def umap_velocity_via_joint(t0,t1):
     stacked = np.vstack([t0,t1])
